@@ -258,6 +258,8 @@ from ansible.module_utils.ec2 import AWSRetry
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_bytes
 
+from ansible.module_utils.cloud import exponential_backoff
+import ansible.module_utils.ec2
 
 def boto_exception(err):
     '''generic error message handler'''
@@ -423,7 +425,7 @@ def stack_operation(cfn, stack_name, operation):
             time.sleep(5)
     return {'failed': True, 'output':'Failed for unknown reasons.'}
 
-@AWSRetry.backoff(tries=3, delay=5)
+@AWSRetry.backoff(backoff=exponential_backoff(retries=2, delay=5, backoff=1.1))
 def describe_stacks(cfn, stack_name):
     return cfn.describe_stacks(StackName=stack_name)
 

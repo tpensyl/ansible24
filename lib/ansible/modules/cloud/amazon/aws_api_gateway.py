@@ -119,6 +119,7 @@ from ansible.module_utils.basic import AnsibleModule, traceback
 from ansible.module_utils.ec2 import ec2_argument_spec, get_aws_connection_info, boto3_conn, camel_dict_to_snake_dict, AWSRetry
 
 from ansible.module_utils.ec2 import HAS_BOTO3
+from ansible.module_utils.cloud import exponential_backoff
 
 try:
     import botocore
@@ -309,25 +310,25 @@ def fail_json_aws(module, exception, msg=None):
                          **camel_dict_to_snake_dict(response))
 
 
-retry_params = {"tries": 10, "delay": 5, "backoff": 1.2}
+backoff_strategy = exponential_backoff(retries=9, delay=5, backoff=1.2)
 
 
-@AWSRetry.backoff(**retry_params)
+@AWSRetry.backoff(backoff=backoff_strategy)
 def create_api(client, name=None, description=None):
     return client.create_rest_api(name="ansible-temp-api", description=description)
 
 
-@AWSRetry.backoff(**retry_params)
+@AWSRetry.backoff(backoff=backoff_strategy)
 def delete_api(client, api_id=None):
     return client.delete_rest_api(restApiId=api_id)
 
 
-@AWSRetry.backoff(**retry_params)
+@AWSRetry.backoff(backoff=backoff_strategy)
 def configure_api(client, api_data=None, api_id=None, mode="overwrite"):
     return client.put_rest_api(body=api_data, restApiId=api_id, mode=mode)
 
 
-@AWSRetry.backoff(**retry_params)
+@AWSRetry.backoff(backoff=backoff_strategy)
 def create_deployment(client, api_id=None, stage=None, description=None):
     # we can also get None as an argument so we don't do this as a defult
     return client.create_deployment(restApiId=api_id, stageName=stage, description=description)

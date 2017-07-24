@@ -379,6 +379,7 @@ import traceback
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.ec2 import boto3_conn, ec2_argument_spec, HAS_BOTO3, camel_dict_to_snake_dict, get_aws_connection_info, AWSRetry
+from ansible.module_utils.cloud import exponential_backoff
 
 try:
     import botocore
@@ -655,7 +656,7 @@ def suspend_processes(ec2_connection, as_group, module):
     return True
 
 
-@AWSRetry.backoff(tries=3, delay=0.1)
+@AWSRetry.backoff(backoff=exponential_backoff(retries=2, delay=0.1, backoff=1.1))
 def create_autoscaling_group(connection, module):
     group_name = module.params.get('name')
     load_balancers = module.params['load_balancers']

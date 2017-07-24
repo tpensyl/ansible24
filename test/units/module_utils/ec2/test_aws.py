@@ -15,6 +15,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Ansible.  If not, see <http://www.gnu.org/licenses/>.
+from ansible.module_utils.cloud import exponential_backoff
 
 try:
     import boto3
@@ -37,7 +38,7 @@ class RetryTestCase(unittest.TestCase):
     def test_no_failures(self):
         self.counter = 0
 
-        @AWSRetry.backoff(tries=2, delay=0.1)
+        @AWSRetry.backoff(backoff=exponential_backoff(retries=1, delay=0.1, backoff=1.1))
         def no_failures():
             self.counter += 1
 
@@ -48,7 +49,7 @@ class RetryTestCase(unittest.TestCase):
         self.counter = 0
         err_msg = {'Error': {'Code': 'InstanceId.NotFound'}}
 
-        @AWSRetry.backoff(tries=2, delay=0.1)
+        @AWSRetry.backoff(backoff=exponential_backoff(retries=1, delay=0.1, backoff=1.1))
         def retry_once():
             self.counter += 1
             if self.counter < 2:
@@ -64,7 +65,7 @@ class RetryTestCase(unittest.TestCase):
         self.counter = 0
         err_msg = {'Error': {'Code': 'RequestLimitExceeded'}}
 
-        @AWSRetry.backoff(tries=4, delay=0.1)
+        @AWSRetry.backoff(backoff=exponential_backoff(retries=3, delay=0.1, backoff=1.1))
         def fail():
             self.counter += 1
             raise botocore.exceptions.ClientError(err_msg, 'toooo fast!!')
@@ -80,7 +81,7 @@ class RetryTestCase(unittest.TestCase):
         self.counter = 0
         err_msg = {'Error': {'Code': 'AuthFailure'}}
 
-        @AWSRetry.backoff(tries=4, delay=0.1)
+        @AWSRetry.backoff(backoff=exponential_backoff(retries=3, delay=0.1, backoff=1.1))
         def raise_unexpected_error():
             self.counter += 1
             raise botocore.exceptions.ClientError(err_msg, 'unexpected error')

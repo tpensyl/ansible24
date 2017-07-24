@@ -117,6 +117,7 @@ policy:
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.ec2 import boto3_conn, get_aws_connection_info, ec2_argument_spec, AWSRetry
 from ansible.module_utils.ec2 import sort_json_policy_dict, camel_dict_to_snake_dict, HAS_BOTO3
+from ansible.module_utils.cloud import exponential_backoff
 import json
 import traceback
 
@@ -126,7 +127,7 @@ except ImportError:
     pass  # caught by imported HAS_BOTO3
 
 
-@AWSRetry.backoff(tries=5, delay=5, backoff=2.0)
+@AWSRetry.backoff(backoff=exponential_backoff(retries=4, delay=5, backoff=2.0))
 def list_policies_with_backoff(iam):
     paginator = iam.get_paginator('list_policies')
     return paginator.paginate(Scope='Local').build_full_result()

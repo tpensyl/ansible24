@@ -88,6 +88,7 @@ from ansible.module_utils.ec2 import (
     ec2_argument_spec,
     get_aws_connection_info,
 )
+from ansible.module_utils.cloud import exponential_backoff
 
 try:
     import boto.ec2.elb
@@ -118,7 +119,7 @@ class ElbInformation(object):
         elb_tags = self.connection.get_list('DescribeTags', params, [('member', Tag)])
         return dict((tag.Key, tag.Value) for tag in elb_tags if hasattr(tag, 'Key'))
 
-    @AWSRetry.backoff(tries=5, delay=5, backoff=2.0)
+    @AWSRetry.backoff(backoff=exponential_backoff(retries=4, delay=5, backoff=2))
     def _get_elb_connection(self):
         return connect_to_aws(boto.ec2.elb, self.region, **self.aws_connect_params)
 
@@ -166,7 +167,7 @@ class ElbInformation(object):
             health_check_dict['ping_path'] = path
         return health_check_dict
 
-    @AWSRetry.backoff(tries=5, delay=5, backoff=2.0)
+    @AWSRetry.backoff(backoff=exponential_backoff(retries=4, delay=5, backoff=2.0))
     def _get_elb_info(self, elb):
         elb_info = {
             'name': elb.name,
