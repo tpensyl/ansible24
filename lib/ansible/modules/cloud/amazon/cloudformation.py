@@ -258,7 +258,7 @@ from ansible.module_utils.ec2 import AWSRetry
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils._text import to_bytes
 
-from ansible.module_utils.cloud import exponential_backoff
+from ansible.module_utils.cloud import full_jitter_backoff
 import ansible.module_utils.ec2
 
 def boto_exception(err):
@@ -425,13 +425,10 @@ def stack_operation(cfn, stack_name, operation):
             time.sleep(5)
     return {'failed': True, 'output':'Failed for unknown reasons.'}
 
-@AWSRetry.backoff(backoff=exponential_backoff(retries=2, delay=5, backoff=1.1))
-def describe_stacks(cfn, stack_name):
-    return cfn.describe_stacks(StackName=stack_name)
 
 def get_stack_facts(cfn, stack_name):
     try:
-        stack_response = describe_stacks(cfn, stack_name)
+        stack_response = cfn.describe_stacks(StackName=stack_name)
         stack_info = stack_response['Stacks'][0]
     #except AmazonCloudFormationException as e:
     except (botocore.exceptions.ValidationError,botocore.exceptions.ClientError) as err:
@@ -516,6 +513,19 @@ def main():
         cfn = ansible.module_utils.ec2.boto3_conn(module, conn_type='client', resource='cloudformation', region=region, endpoint=ec2_url, **aws_connect_kwargs)
     except botocore.exceptions.NoCredentialsError as e:
         module.fail_json(msg=boto_exception(e))
+
+    # Wrap cloudformation client that we use in a wrapper that handles
+    # backoff and retries.
+    backoff_strategy = full_jitter_backoff(retries=10, delay=2, max_delay=30)
+    backoff_wrapper = AWSRetry.backoff(backoff=backoff_strategy)
+    cfn.describe_stacks = backoff_wrapper(cfn.describe_stacks)
+    cfn.update_stack = backoff_wrapper(cfn.update_stack)
+    cfn.create_stack = backoff_wrapper(cfn.create_stack)
+    cfn.describe_stack_events = backoff_wrapper(cfn.describe_stack_events)
+    cfn.list_change_sets = backoff_wrapper(cfn.list_change_sets)
+    cfn.create_change_set = backoff_wrapper(cfn.create_change_set)
+    cfn.list_stack_resources = backoff_wrapper(cfn.list_stack_resources)
+    cfn.delete_stack = backoff_wrapper(cfn.delete_stack)
 
     stack_info = get_stack_facts(cfn, stack_params['StackName'])
 
