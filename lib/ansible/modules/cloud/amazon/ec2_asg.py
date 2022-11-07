@@ -864,9 +864,14 @@ def create_autoscaling_group(connection, module):
                     )
 
         # check for attributes that aren't required for updating an existing ASG
-        desired_capacity = desired_capacity or as_group['DesiredCapacity']
-        min_size = min_size or as_group['MinSize']
-        max_size = max_size or as_group['MaxSize']
+        # Make sure 0 is allowed.
+        if min_size is None:
+            min_size = as_group['MinSize']
+        if max_size is None:
+            max_size = as_group['MaxSize']
+        if desired_capacity is None:
+            desired_capacity = as_group['DesiredCapacity']
+
         launch_config_name = launch_config_name or as_group['LaunchConfigurationName']
 
         launch_configs = connection.describe_launch_configurations(LaunchConfigurationNames=[launch_config_name])
